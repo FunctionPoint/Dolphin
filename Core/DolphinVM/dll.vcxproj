@@ -28,7 +28,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>PGOptimize</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VM Debug|Win32'" Label="Configuration">
     <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -102,6 +102,7 @@
       </DisableSpecificWarnings>
       <WarningLevel>Level4</WarningLevel>
       <ExceptionHandling>false</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG</PreprocessorDefinitions>
@@ -114,6 +115,7 @@
       <ModuleDefinitionFile>.\VM.def</ModuleDefinitionFile>
       <EntryPointSymbol>_DllMainCRTStartup%4012</EntryPointSymbol>
       <DataExecutionPrevention />
+      <ProfileGuidedDatabase>$(SolutionDir)..\..\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
     <PreBuildEvent>
     </PreBuildEvent>

@@ -33,9 +33,74 @@
 	#include "STClassDesc.h"
 #endif
 
+// The performance of the shortcut primitive implementations for methods that return self, literal zero, etc,
+// is important to overall system performance, so it is worth retaining assembler implementations, although 
+// the carefully ordered C++ versions are not too bad.
+#ifdef _M_IX86
+__declspec(naked) Oop* __fastcall Interpreter::primitiveReturnSelf(Oop* const sp, unsigned argCount)
+{
+	_asm
+	{
+		lea		edx, [edx * 4]
+		sub		ecx, edx
+		cmp		[m_bStepping], 0
+		mov		eax, 90000009H
+		cmovz	eax, ecx
+		ret
+	}
+}
+
+using namespace ST;
+
+__declspec(naked) Oop* __fastcall Interpreter::primitiveReturnLiteralZero(Oop* const sp, unsigned argCount)
+{
+	_asm
+	{
+		mov		eax, ecx
+		lea		edx, [edx * 4]
+		mov		ecx, [m_registers.m_oopNewMethod]
+		sub		eax, edx
+		mov		ecx, [ecx]OTE.m_location
+		cmp		[m_bStepping], 0
+		mov		ecx, [ecx]CompiledMethod.m_aLiterals[0]
+		jne		debugStep
+		mov		[eax], ecx
+		ret
+	debugStep:
+		mov		eax, 90000009H
+		ret
+	}
+}
+
+__declspec(naked) Oop* __fastcall Interpreter::primitiveReturnStaticZero(Oop* const sp, unsigned argCount)
+{
+	_asm
+	{
+		mov		ecx, [m_registers.m_oopNewMethod]
+		mov		eax, esi
+		mov		ecx, [ecx]OTE.m_location
+		lea		edx, [edx * 4]
+		mov		ecx, [ecx]CompiledMethod.m_aLiterals[0]
+		sub		eax, edx
+		mov		ecx, [ecx]OTE.m_location
+		cmp		[m_bStepping], 0
+		mov		ecx, [ecx]VariableBinding.m_value
+		jne		debugStep
+		mov		[eax], ecx
+		ret
+	debugStep:
+		mov		eax, 90000009H
+		ret
+	}
+}
+#else
 Oop* __fastcall Interpreter::primitiveReturnSelf(Oop* const sp, unsigned argCount)
 {
-	return !m_bStepping ? sp - argCount : primitiveFailure(_PrimitiveFailureCode::DebugStep);
+	// This arrangement avoids any conditional jumps, although there is no guarantee a new version 
+	// of the compiler won't optimize it differently, hence the _asm block above as the performance 
+	// of this method is surprisingly important
+	Oop* newSp = sp - argCount;
+	return m_bStepping ? primitiveFailure(_PrimitiveFailureCode::DebugStep) : newSp;
 }
 
 Oop* __fastcall Interpreter::primitiveReturnLiteralZero(Oop* const sp, unsigned argCount)
@@ -67,6 +132,7 @@ Oop* __fastcall Interpreter::primitiveReturnStaticZero(Oop* const sp, unsigned a
 		return primitiveFailure(_PrimitiveFailureCode::DebugStep);
 	}
 }
+#endif
 
 
 // In order to keep the message lookup routines 'tight' we ensure that the infrequently executed code
@@ -134,7 +200,12 @@ inline BOOL Interpreter::sampleInput()
 	if ((SDWORD)m_nInputPollInterval > 0)
 	{
 		// Look for any input in the queue, not just for new stuff
-		if (((::GetQueueStatus(m_dwQueueStatusMask) >> 16) & m_dwQueueStatusMask) != 0)
+		if (((::GetQueueStatus(m_dwQueueStatusMask) >> 16) & m_dwQueueStatusMask) == 0)
+		{
+			// No input found, reset for next sampling
+			ResetInputPollCounter();
+		}
+		else
 		{
 			// Note that we must signal the semaphore here because, even though
 			// we signal the wakeup event allowing the idle task to restart, the 
@@ -163,11 +234,6 @@ inline BOOL Interpreter::sampleInput()
 			// happen when using Sockets.
 			SetWakeupEvent();
 		}
-		else
-		{
-			// No input found, reset for next sampling
-			ResetInputPollCounter();
-		}
 	}
 
 	return m_bAsyncPending;
@@ -185,6 +251,7 @@ bool Interpreter::IsUserBreakRequested()
 	int vk = hotkey & 0x1FF;
 	bool interrupt = (::GetAsyncKeyState(vk) & 0x8001) != 0;
 	int modifiers = (hotkey >> 9);
+	if (modifiers & FSHIFT)
 	{
 		interrupt &= (::GetAsyncKeyState(VK_SHIFT) & 0x8001) != 0;
 	}
@@ -198,6 +265,7 @@ bool Interpreter::IsUserBreakRequested()
 	}
 	return interrupt;
 }
+
 BOOL __stdcall Interpreter::BytecodePoll()
 {
 	if (m_nInputPollCounter <= 0 && !m_bStepping)
@@ -467,35 +535,6 @@ ContextOTE* __fastcall Context::New(unsigned tempCount, Oop oopOuter)
 	return newContext;
 }
 
-BlockOTE* __fastcall BlockClosure::New(unsigned copiedValuesCount)
-{
-	BlockOTE* newBlock;
-	
-	if (copiedValuesCount <= MaxCopiedValues)
-	{
-		// Can allocate from pool of contexts
-
-		newBlock = reinterpret_cast<BlockOTE*>(Interpreter::m_otePools[Interpreter::BLOCKPOOL].newPointerObject(Pointers.ClassBlockClosure, 
-										FixedSize + MaxCopiedValues, OTEFlags::BlockSpace));
-		BlockClosure* pClosure = newBlock->m_location;
-
-		const Oop nil = Oop(Pointers.Nil);		// Loop invariant
-		#ifdef _DEBUG
-			pClosure->m_receiver = nil;
-		#endif
-		// Don't need to nil out the copied values slots, as these will be overwritten on BlockCopy
-
-		newBlock->setSize(SizeOfPointers(BlockClosure::FixedSize+copiedValuesCount));
-	}
-	else
-	{
-		// Too large for context pool, so allocate as if a normal object
-		newBlock = reinterpret_cast<BlockOTE*>(ObjectMemory::newPointerObject(Pointers.ClassBlockClosure, BlockClosure::FixedSize + copiedValuesCount));
-	}
-
-	return newBlock;
-}
-
 #pragma code_seg(INTERPMISC_SEG)
 
 // Departure from Smalltalk-80 here in that we send the cannotReturn: selector to the Processor
@@ -640,29 +679,64 @@ void Interpreter::nonLocalReturnValueTo(Oop resultPointer, Oop framePointer)
 #pragma code_seg(INTERP_SEG)
 
 // Create a new Block from the current active frame with the specified number of arguments
-BlockOTE* __fastcall Interpreter::blockCopy(DWORD ext)
+BlockOTE* __stdcall Interpreter::blockCopy(BlockCopyExtension extension)
 {
-	BlockCopyExtension extension = *reinterpret_cast<BlockCopyExtension*>(&ext);
-
 	// Note that every field of the context must be assigned, because the block
 	// may come from the context cache
-	BlockOTE* oteBlock = BlockClosure::New(extension.copiedValuesCount);
+	BlockOTE* oteBlock;
 
-	HARDASSERT(ObjectMemory::hasCurrentMark(oteBlock));
-	HARDASSERT(oteBlock->m_oteClass == Pointers.ClassBlockClosure);
+	const unsigned nValuesToCopy = extension.copiedValuesCount;
+
+	if (nValuesToCopy <= BlockClosure::MaxCopiedValues)
+	{
+		oteBlock = reinterpret_cast<BlockOTE*>(Interpreter::m_otePools[Interpreter::BLOCKPOOL].newPointerObject(Pointers.ClassBlockClosure,
+			BlockClosure::FixedSize + BlockClosure::MaxCopiedValues, OTEFlags::BlockSpace));
+		oteBlock->setSize(SizeOfPointers(BlockClosure::FixedSize + nValuesToCopy));
+	}
+	else
+	{
+		// Too large for context pool, so allocate as if a normal object
+		oteBlock = reinterpret_cast<BlockOTE*>(ObjectMemory::newPointerObject(Pointers.ClassBlockClosure, BlockClosure::FixedSize + nValuesToCopy));
+	}
+
 	BlockClosure* pBlock = oteBlock->m_location;
 
-	// Set up the initial IP
-	m_registers.StoreIPInFrame();
-	StackFrame* frame = activeFrame();
-	Oop oopIP = frame->m_ip - ((SizeOfPointers(0)-1)<<1);
-	pBlock->m_initialIP = oopIP;
 	pBlock->m_info.isInteger = 1;
 	pBlock->m_info.argumentCount = extension.argCount;
 	pBlock->m_info.stackTempsCount = extension.stackTempsCount;
 	pBlock->m_info.envTempsCount = extension.envTempsCount;
 
-	HARDASSERT(ObjectMemoryIsIntegerObject(*reinterpret_cast<Oop*>(&pBlock->m_info)));
+	if (nValuesToCopy > 0)
+	{
+		Oop* sp = m_registers.m_stackPointer;
+		unsigned i = 0;
+		do
+		{
+			Oop copiedValue = *(sp--);
+			// We must count up the value, since we are storing it into a heap object, and the stack refs
+			// are not counted while the process is active
+			ObjectMemory::countUp(copiedValue);
+			pBlock->m_copiedValues[i] = copiedValue;
+			i++;
+		} while (i < nValuesToCopy);
+		m_registers.m_stackPointer = sp;
+	}
+
+	StackFrame* frame = activeFrame();
+
+	if (extension.needsSelf)
+	{
+		Oop receiver = frame->receiver();
+		pBlock->m_receiver = receiver;
+		ObjectMemory::countUp(receiver);
+	}
+	else
+	{
+		pBlock->m_receiver = Oop(Pointers.Nil);
+	}
+
+	pBlock->m_method = frame->m_method;
+	pBlock->m_method->countUp();
 
 	if (!extension.needsOuter)
 	{
@@ -695,37 +769,15 @@ BlockOTE* __fastcall Interpreter::blockCopy(DWORD ext)
 		outerPointer->countUp();
 	}
 	
-	const unsigned nValuesToCopy = extension.copiedValuesCount;
-	if (nValuesToCopy > 0)
-	{
-		Oop* sp = m_registers.m_stackPointer;
-		unsigned i=0;
-		do
-		{
-			Oop copiedValue = *(sp--);
-			// We must count up the value, since we are storing it into a heap object, and the stack refs
-			// are not counted while the process is active
-			ObjectMemory::countUp(copiedValue);
-			pBlock->m_copiedValues[i] = copiedValue;
-			i++;
-		} while (i<nValuesToCopy);
-		m_registers.m_stackPointer = sp;
-	}
-
-	if (extension.needsSelf)
-	{
-		pBlock->m_receiver = frame->receiver();
-		ObjectMemory::countUp(pBlock->m_receiver);
-	}
-	else
-		pBlock->m_receiver = Oop(Pointers.Nil);
-
-	pBlock->m_method = frame->m_method;
-	pBlock->m_method->countUp();
+	// Set up the initial IP
+	unsigned initialIP =
+		(m_registers.m_instructionPointer
+			- reinterpret_cast<BytesOTE*>(m_registers.m_pMethod->m_byteCodes)->m_location->m_fields
+			+ 1);
+	pBlock->m_initialIP = ObjectMemoryIntegerObjectOf(initialIP);
 
 	return oteBlock;
 }
-
 
 #pragma code_seg(PRIM_SEG)
 ///////////////////////////////////////////////////////////////////////////////
