@@ -178,7 +178,7 @@ __declspec(naked) Oop* __fastcall Interpreter::primitiveBitShift(Oop* const sp, 
 		jz		zero					// If receiver is zero, then result always zero
 
 		cmp		ecx, 30					// We can't shift more than 30 places this way, since receiver not zero
-		jge		integerOverflow
+		ja		integerOverflow
 
 		// To avoid using a loop, we use the double precision shift first
 		// to detect potential overflow.
@@ -203,7 +203,7 @@ __declspec(naked) Oop* __fastcall Interpreter::primitiveBitShift(Oop* const sp, 
 		ret
 
 	invalidParameter1:
-		mov		eax, 0xd0001df				// _PrimitiveFailureCode::InvalidParameter1
+		mov		eax, 0xd00001df				// _PrimitiveFailureCode::InvalidParameter1
 		ret
 
 	integerOverflow:

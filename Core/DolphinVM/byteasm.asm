@@ -2964,9 +2964,9 @@ ENDBYTECODE sendArithmeticDiv
 ;; BitShift is a bit too complicated to expand in-line at present, due to the rather crap overflow
 ;; detection - this seems to make it no faster than multiplication, which is crap of course.
 BEGINBYTECODE sendArithmeticBitShift
-	mov		eax, [_SP-OOPSIZE]							; Access receiver beneath argument
-	test	al, 1										; Receiver is a SmallInteger?
-	jz		sendMessageToObject							; No, skip primitive response
+	mov		eax, [_SP-OOPSIZE]				; Access receiver beneath argument
+	test	al, 1							; Receiver is a SmallInteger?
+	jz		sendMessageToObject				; No, skip primitive response
 
 	mov		ecx, [_SP]						; Load argument from stack
 	mov		edx, eax						; Sign extend into edx from eax part 1
@@ -2980,7 +2980,7 @@ BEGINBYTECODE sendArithmeticBitShift
 	jz		storeDispatchNext				; If receiver is zero, then result always zero
 
 	cmp		ecx, 30							; We can't shift more than 30 places this way, since receiver not zero
-	jge		sendMessage
+	ja		sendMessage
 
 	; To avoid using a loop, we use the double precision shift first
 	; to detect potential overflow.
