@@ -596,26 +596,12 @@ Oop* __fastcall Interpreter::primitiveDiv(Oop* const sp, unsigned)
 				: MinusOnePointer;
 			return sp - 1;
 		}
-		else if (oteArg->m_oteClass == Pointers.ClassFloat)
-		{
-			double floatA = reinterpret_cast<FloatOTE*>(oteArg)->m_location->m_fValue;
-			if (floatA != 0.0)
-			{
-				double floatR = ObjectMemoryIntegerValueOf(receiver);
-				SMALLINTEGER quo = static_cast<SMALLINTEGER>(floatR / floatA);
-				SMALLINTEGER div = 
-					(quo < 0
-						? (quo * floatA) != receiver
-						: quo == 0 && (receiver < 0 != floatA < 0))
-					? quo - 1 : quo;
-				StoreSigned32()(sp - 1, div);
-				return sp - 1;
-			}
-			else
-				return primitiveFailure(_PrimitiveFailureCode::FloatDivideByZero);
-		}
 		else
+		{
+			// Handling floats here is complicated because we can easily generate a very large integer by dividing by a very small float,
+			// so it is better to leave it to the Smalltalk code to handle this case along with any other argument type
 			return primitiveFailure(_PrimitiveFailureCode::InvalidParameter1);
+		}
 	}
 }
 
@@ -644,15 +630,12 @@ Oop* __fastcall Interpreter::primitiveQuo(Oop* const sp, unsigned)
 							: MinusOnePointer;
 			return sp - 1;
 		}
-		else if (oteArg->m_oteClass == Pointers.ClassFloat)
-		{
-			double floatA = reinterpret_cast<FloatOTE*>(oteArg)->m_location->m_fValue;
-			double floatR = ObjectMemoryIntegerValueOf(receiver);
-			StoreSigned32()(sp - 1, static_cast<SMALLINTEGER>(floatR / floatA));
-			return sp - 1;
-		}
 		else
+		{
+			// Handling floats here is complicated because we can easily generate a very large integer by dividing by a very small float,
+			// so it is better to leave it to the Smalltalk code to handle this case along with any other argument type
 			return primitiveFailure(_PrimitiveFailureCode::InvalidParameter1);
+		}
 	}
 }
 

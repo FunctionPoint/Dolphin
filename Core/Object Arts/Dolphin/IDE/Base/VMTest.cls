@@ -1410,17 +1410,17 @@ testPrimitiveCopyFromTo
 				self assert: actual equals: each]!
 
 testPrimitiveDiv
-	| method cases |
+	| method |
 	method := self createPrimitiveMethodLike: SmallInteger >> #//.
 	{SmallInteger minimum. -3. -1. 0. 1. 3. SmallInteger maximum}
 		do: [:each | self should: [method value: each withArguments: #(0)] raise: ZeroDivide].
 	"The primitive assumes that the receiver is a SmallInteger; it does not check.
-	It accepts SmallInteger, LargeInteger and Float arguments, and fails for everything else"
-	{'s'. 1 / 2}
+	It accepts SmallInteger, and LargeInteger arguments, and fails for everything else"
+	{'s'. 1 / 2. 1.23}
 		do: [:each | self assert: (method value: 1 withArguments: {each}) equals: 'InvalidParameter1'].
 	"At present this primitive does not handle LargeInteger args, unlike some other integer arithmetic primitives"
-	cases := SmallIntegerTest integerDivideTestCases.
-	self verifyBinaryPrimitive: method forCases: cases!
+	self verifyBinaryPrimitive: method
+		forCases: (SmallIntegerTest integerDivideTestCases reject: [:each | each second isKindOf: Float])!
 
 testPrimitiveDivide
 	| method |
@@ -2220,14 +2220,10 @@ testPrimitiveQuo
 	{SmallInteger minimum. -3. -1. 0. 1. 3. SmallInteger maximum}
 		do: [:each | self should: [method value: each withArguments: #(0)] raise: ZeroDivide].
 	"The primitive assumes that the receiver is a SmallInteger; it does not check.
-	It accepts SmallInteger, LargeInteger and Float arguments, and fails for everything else"
-	{'s'. 1 / 2}
+	It accepts SmallInteger and LargeInteger arguments, and fails for everything else"
+	{'s'. 1 / 2. 1.23 }
 		do: [:each | self assert: (method value: 1 withArguments: {each}) equals: 'InvalidParameter1'].
-	self verifyBinaryPrimitive: method forCases: SmallIntegerTest quoTestCases.
-	{1. SmallInteger maximum. SmallInteger minimum} do: 
-			[:eachInt |
-			{Float fmin. Float fminDenormalized. Float fmin negated. Float fminDenormalized negated}
-				do: [:eachFloat | self should: [method value: eachInt withArguments: {eachFloat}] raise: FloatingPointException]]!
+	self verifyBinaryPrimitive: method forCases: (SmallIntegerTest quoTestCases reject: [:each | each second isKindOf: Float])!
 
 testPrimitiveReplaceElements
 	self exerciseReplaceElementsOf: #($a $b $c $d $e) with: #(1 2 3 4 5 6).

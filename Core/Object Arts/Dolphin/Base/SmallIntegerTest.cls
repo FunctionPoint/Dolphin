@@ -360,7 +360,7 @@ bitShiftTestCases
 				{3640. 1. 7280}}!
 
 integerDivideTestCases
-	^#(#(0 1 0) #(1 1 1) #(1 -1 -1) #(0 -1 0) #(-1 1 -1) #(-1 -1 1) #(0 2 0) #(2 1 2) #(2 2 1) #(2 -1 -2) #(2 -2 -1) #(0 -2 0) #(-2 1 -2) #(-2 -2 1) #(-2 -1 2) #(-2 2 -1) #(7 2 3) #(-7 2 -4) #(7 -2 -4) #(-7 -2 3) #(1 2 0) #(-1 2 -1) #(1 -2 -1) #(-1 -2 0) #(-16r40000000 3 -16r15555556) #(-16r40000000 -3 16r15555555) #(7 -3.0 -3) #(9 4.0 2) #(9 -4.0 -3))
+	^#(#(0 1 0) #(1 1 1) #(1 -1 -1) #(0 -1 0) #(-1 1 -1) #(-1 -1 1) #(0 2 0) #(2 1 2) #(2 2 1) #(2 -1 -2) #(2 -2 -1) #(0 -2 0) #(-2 1 -2) #(-2 -2 1) #(-2 -1 2) #(-2 2 -1) #(7 2 3) #(-7 2 -4) #(7 -2 -4) #(-7 -2 3) #(1 2 0) #(-1 2 -1) #(1 -2 -1) #(-1 -2 0) #(-16r40000000 3 -16r15555556) #(-16r40000000 -3 16r15555555) #(7 -3.0 -3) #(9 4.0 2) #(9 -4.0 -3) #(2 -2.0 -1) #(2 2.0 1) #(1073741823 0.011 97612893000) #(1073741823 -0.011 -97612893001))
 		, {{0. SmallInteger maximum. 0}.
 				{0. SmallInteger maximum + 1. 0}.
 				{0. SmallInteger minimum. 0}.
@@ -421,6 +421,7 @@ integerDivideTestCases
 				{SmallInteger maximum. 16rFFFFFFFFFFFFFFFF. 0}.
 				{SmallInteger maximum. 2.0. SmallInteger maximum bitShift: -1}.
 				{SmallInteger maximum. -2.0. (SmallInteger maximum bitShift: -1) negated - 1}.
+				{SmallInteger maximum. -0.1. SmallInteger maximum * 10 negated}.
 				{-16r40000000. Float pi. -341782638}.
 				{-16r40000000. Float pi negated. 341782637}.
 				{16r3FFFFFFF. Float pi. 341782637}.
@@ -484,6 +485,7 @@ quoTestCases
 				{SmallInteger maximum. Float fmax negated. 0}.
 				{SmallInteger minimum. Float fmax. 0}.
 				{SmallInteger minimum. Float fmax negated. 0}.
+				{SmallInteger minimum. 0.01. SmallInteger minimum * 100}.
 				{-16r40000000. Float pi. -341782637}.
 				{-16r40000000. Float pi negated. 341782637}.
 				{16r3FFFFFFF. Float pi. 341782637}.
